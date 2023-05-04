@@ -6,40 +6,6 @@ from joblib import load
 from pathlib import Path
 
 
-def batch_preprocess(df):
-    print("Starting preprocessing")
-    """
-        This function is to cover all the preprocessing steps on the churn dataframe. It involves selecting important features,
-        encoding categorical data, handling missing values,feature scaling and splitting the data
-        """
-    # remove rows with no TotalCharges
-    df = df[df.TotalCharges != " "]
-    df.TotalCharges = df.TotalCharges.astype(float)
-    # replace values
-    df.replace("No internet service", "No", inplace=True)
-    df.replace("No phone service", "No", inplace=True)
-
-    # # Encode categorical features
-    binary_columns = ['Partner', 'Dependents', 'PhoneService', 'MultipleLines', 'OnlineSecurity', 'OnlineBackup',
-                      'DeviceProtection', 'TechSupport', 'StreamingTV', 'StreamingMovies', 'PaperlessBilling']
-
-    for col in binary_columns:
-        df[col].replace({"Yes": 1, "No": 0}, inplace=True)
-
-    df["gender"].replace({"Female": 1, "Male": 0}, inplace=True)
-    # The customerID column is not useful as the feature is used for identification of customers.
-    # df.drop(["Churn"], axis=1, inplace=True)
-    # df.drop(["Unnamed: 0"], axis=1, inplace=True)
-    cols_to_scale = ["tenure", "MonthlyCharges", "TotalCharges"]
-    scaler = MinMaxScaler()
-    df[cols_to_scale] = scaler.fit_transform(df[cols_to_scale])
-    # Get dummy data for some of the categorical data
-    df = pd.get_dummies(data=df, columns=['InternetService', 'Contract', 'PaymentMethod'])
-    print("Finished preprocessing")
-    print(type(df))
-    return df
-
-
 def preprocess(df):
     print(df.head())
     print("Starting preprocessing")
@@ -167,7 +133,7 @@ def get_predictions(df):
     )
 
     # Get the final predictions from the meta model
-    final_predictions = __meta_model.predict(predictions)
+    final_predictions = __meta_model.predict_proba(predictions)[:, 1]
     print(final_predictions)
     print("final identifier type: ")
     print(type(identifier))
@@ -179,7 +145,9 @@ def get_predictions(df):
     print(identifier.head())
     # identifier = pd.concat([identifier, testDf], axis=1)
     identifier = pd.concat([identifier.reset_index(drop=True), testDf], axis=1)
+    identifier["Churn Risk"] = (identifier["Prediction"] * 100).apply(lambda x: '{:.2f}%'.format(x))
     print(identifier.head())
+    identifier.drop(["Prediction"], axis=1, inplace=True)
     print("Returning prediction")
     return identifier
 

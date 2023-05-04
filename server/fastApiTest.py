@@ -2,7 +2,7 @@ import json
 
 import jwt
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Response, Form
+from fastapi import FastAPI, HTTPException, Response, Form, File, UploadFile, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
@@ -29,7 +29,7 @@ app.add_middleware(
 class Dataset(BaseModel):
     token: str
     filename: str
-    contents: bytes
+    contents: str
 
 
 class SelectedDataset(BaseModel):
@@ -130,16 +130,27 @@ async def login(userdata: dict):
     else:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
+from requests_toolbelt.multipart.encoder import MultipartEncoder
+import base64
+@app.post("/api/v1/upload_file")
+async def upload_file(request: Request):
+    # Get the MultipartEncoder object from the request body
+    form = await request.form()
 
-@app.post("/api/v1/upload")
-async def upload_csv(dataset: Dataset):
-    token = dataset.token
+    # Extract the file and session token from the MultipartEncoder object
+    encoder = MultipartEncoder(form)
+    token = encoder.fields["session_token"]
+
     if token:
-        username = JWTAuthenticator.decode_token(token)["username"]
+        file = encoder.fields["file"]
+        file_name = encoder.fields["filename"]
+        file = file.encode('utf-8')
+        encoded_string = base64.b64encode(file)
+
         datasetDoc = {
-            "username": username,
-            "filename": dataset.filename,
-            "contents": dataset.contents
+            "username": JWTAuthenticator.decode_token(token)["username"],
+            "filename": file_name,
+            "contents": encoded_string
         }
         dataset_collection.insert_one(datasetDoc)
         return {"status_code": 200,
@@ -147,6 +158,23 @@ async def upload_csv(dataset: Dataset):
     else:
         raise HTTPException(status_code=401, detail="Please Login")
 
+
+
+# @app.post("/api/v1/upload")
+# async def upload_csv(dataset: Dataset):
+#     token = dataset.token
+#     if token:
+#         username = JWTAuthenticator.decode_token(token)["username"]
+#         datasetDoc = {
+#             "username": username,
+#             "filename": dataset.filename,
+#             "contents": dataset.contents.encode("utf-8")
+#         }
+#         dataset_collection.insert_one(datasetDoc)
+#         return {"status_code": 200,
+#                 "message": "Dataset saved successfully"}
+#     else:
+#         raise HTTPException(status_code=401, detail="Please Login")
 
 @app.get("/api/v1/filenames")
 async def get_all_filenames(token: Token):
@@ -171,9 +199,12 @@ async def get_dataset(userdata: dict):
         username = JWTAuthenticator.decode_token(token)["username"]
         doc = dataset_collection.find_one({"username": username, "filename": filename})
         if doc:
-            return doc['content']
+            decoded_dataset = base64.b64decode(doc['contents'])
+            return ({"status_code":200, "dataset":decoded_dataset})
         else:
-            return f'File {filename} not found'
+            return ({"status_code": 400,
+                 "message": f'File {filename} not found'
+                 })
     else:
         raise HTTPException(status_code=401, detail="Please Login")
 
@@ -186,8 +217,17 @@ async def delete_dataset(selectedDataset: SelectedDataset):
         username = JWTAuthenticator.decode_token(token)["username"]
         if dataset_collection.find_one({"username": username, "filename": filename}):
             dataset_collection.delete_one({"username": username, "filename": filename})
+            return (
+                {"status_code": 200,
+                 "message": "Successfully deleted the dataset"
+                 }
+            )
         else:
-            return f'File {filename} not found'
+            return (
+                {"status_code": 400,
+                 "message": f'File {filename} not found'
+                 }
+            )
     else:
         raise HTTPException(status_code=401, detail="Please Login")
 
