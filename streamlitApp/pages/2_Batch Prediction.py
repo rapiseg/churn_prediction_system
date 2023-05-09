@@ -14,7 +14,7 @@ def upload():
         if uploaded_file is not None:
             data = pd.read_csv(uploaded_file)
             # # Get overview of data
-            st.dataframe(data)
+            original_df = st.dataframe(data)
             # # st.write(data.head())
             st.markdown("<h3></h3>", unsafe_allow_html=True)
 
@@ -33,8 +33,14 @@ def upload():
                 response = requests.post(url, json=data_dict)
                 print(response.json())
                 print(type(response.json()["response"]))
+
                 results_df = pd.DataFrame(response.json()["response"])
-                print(results_df)
+                print(type(original_df))
+                print(type(results_df))
+
+                # data["Prediction"] = results_df["Prediction"]
+                # data["Churn Risk"] = results_df["Churn Risk"]
+                # print(data)
                 st.dataframe(results_df)
                 # st.write(results_df.head())
 

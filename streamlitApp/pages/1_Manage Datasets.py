@@ -40,7 +40,7 @@ def manage_datasets():
             dataframe = pd.read_csv(io.StringIO(dataset))
 
             st.dataframe(dataframe)
-            st.button("Predict")
+            predict = st.button("Predict")
             delete = st.button("Delete")
             if delete:
                 url = "http://127.0.0.1:8000/api/v1/delete"
@@ -56,6 +56,23 @@ def manage_datasets():
                     st.experimental_rerun()
                 else:
                     st.warning("Failed to delete dataset.")
+            if predict:
+                url = 'http://127.0.0.1:8000/predict_churn'
+                data_dict = {'token': st.session_state.token, 'featureDict': dataframe.to_dict(), 'inputType': 'multi'}
+                response = requests.post(url, json=data_dict)
+                print(response.json())
+                print(type(response.json()["response"]))
+                results_df = pd.DataFrame(response.json()["response"])
+                print(results_df)
+                st.dataframe(results_df)
+                # st.write(results_df.head())
+
+                if results_df is not None:
+                    st.download_button("Download Results",
+                                       data= convert_df(results_df),
+                                       file_name="results.csv",
+                                       mime="text/csv",
+                                       )
         elif res.json()["status_code"] == 400:
             st.text("No Files")
 
@@ -63,6 +80,10 @@ def manage_datasets():
     else:
         st.warning("Please login to access the contents of this page")
 
+
+@st.cache
+def convert_df(df):
+    return df.to_csv().encode('utf-8')
 
 
 if __name__ == '__main__':

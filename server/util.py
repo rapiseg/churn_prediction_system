@@ -134,20 +134,23 @@ def get_predictions(df):
 
     # Get the final predictions from the meta model
     final_predictions = __meta_model.predict_proba(predictions)[:, 1]
+    prediction = __meta_model.predict(predictions)
     print(final_predictions)
     print("final identifier type: ")
     print(type(identifier))
     print(identifier.head())
     print("Concatinating final predictions")
-    testDf = pd.DataFrame({'Prediction': final_predictions})
+    testDf = pd.DataFrame({'Prediction_prob': final_predictions})
+    predDf = pd.DataFrame({'Prediction': prediction})
     print(testDf.head())
     identifier = identifier.to_frame()
     print(identifier.head())
     # identifier = pd.concat([identifier, testDf], axis=1)
     identifier = pd.concat([identifier.reset_index(drop=True), testDf], axis=1)
-    identifier["Churn Risk"] = (identifier["Prediction"] * 100).apply(lambda x: '{:.2f}%'.format(x))
+    identifier = pd.concat([identifier.reset_index(drop=True), predDf], axis=1)
+    identifier["Churn Risk"] = (identifier["Prediction_prob"] * 100).apply(lambda x: '{:.2f}%'.format(x))
     print(identifier.head())
-    identifier.drop(["Prediction"], axis=1, inplace=True)
+    identifier.drop(["Prediction_prob"], axis=1, inplace=True)
     print("Returning prediction")
     return identifier
 

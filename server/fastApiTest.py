@@ -12,7 +12,8 @@ from passlib.hash import bcrypt
 from typing import Union
 from pydantic import BaseModel
 import util
-
+from requests_toolbelt.multipart.encoder import MultipartEncoder
+import base64
 from typing_extensions import Annotated
 
 app = FastAPI()
@@ -109,7 +110,7 @@ async def register(userdata: dict):
     # Creating and returning response
     response = {
         "username": userdata["username"],
-        "token": token,
+        "access_token": token,
         "message": "User registered successfully",
         "status_code": 200
     }
@@ -128,10 +129,9 @@ async def login(userdata: dict):
             "status_code": 200
         }
     else:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+        return {"status_code":401, "detail":"Invalid username or password"}
 
-from requests_toolbelt.multipart.encoder import MultipartEncoder
-import base64
+
 @app.post("/api/v1/upload_file")
 async def upload_file(request: Request):
     # Get the MultipartEncoder object from the request body
